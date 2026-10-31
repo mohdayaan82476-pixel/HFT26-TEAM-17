@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exoplanet Odyssey: 3D Spherical Exploration</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Three.js ES Module Import Map (Local Vendor with Instant Offline Loading) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- 3D WebGL Canvas Viewport -->
+  <div id="canvas-container"></div>
+
+  <!-- HUD Glassmorphism Layer -->
+  <div id="hud-overlay">
+    
+    <!-- TOP BAR -->
+    <header id="top-bar" class="glass-panel interactive">
+      <div class="brand-section">
+        <span class="game-title">🪐 EXOPLANET ODYSSEY</span>
+        <span class="sub-brand">NASA Exoplanet Archive</span>
+        <span id="nasa-source-badge" class="status-badge live">● Sync</span>
+      </div>
+      <div class="top-actions">
+        <span id="gemini-status-badge" class="status-badge">Featherless AI Active</span>
+        <button id="galaxy-map-toggle-btn" class="action-btn">🌌 Galaxy Map <span class="key-hint">Tab</span></button>
+        <button id="api-key-toggle-btn" class="action-btn icon-btn" title="Featherless AI Key">🔑</button>
+        <button id="audio-toggle-btn" class="action-btn icon-btn" title="Toggle Sound">🔊</button>
+      </div>
+    </header>
+
+    <!-- LEFT ATMOSPHERIC HUD (Step 1 & Step 3iii) -->
+    <div id="hud-atmosphere" class="glass-panel">
+      <div class="hud-header">
+        <div class="hud-badge-row">
+          <span class="hud-planet-badge">EXPLORATION TARGET</span>
+        </div>
+        <div id="hud-planet-name" class="hud-planet-name">Earth</div>
+        <div id="hud-planet-type" class="hud-planet-type">Terrestrial Home Base</div>
+        <div id="hud-breathability" class="hud-breath-badge breathable">🫁 Breathable (Safe)</div>
+      </div>
+      
+      <!-- Nitrogen -->
+      <div class="atmo-stat-row">
+        <span class="stat-label">🧪 Nitrogen (N₂)</span>
+        <span id="hud-n2-val" class="stat-value">78.08%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill fill-n2" style="width: 78.08%;"></div>
+      </div>
+
+      <!-- Oxygen -->
+      <div class="atmo-stat-row">
+        <span class="stat-label">💨 Oxygen (O₂)</span>
+        <span id="hud-o2-val" class="stat-value">20.95%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill fill-o2" style="width: 20.95%;"></div>
+      </div>
+
+      <!-- Carbon Dioxide -->
+      <div class="atmo-stat-row">
+        <span class="stat-label">☁️ Carbon Dioxide (CO₂)</span>
+        <span id="hud-co2-val" class="stat-value">0.04%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill fill-co2" style="width: 0.04%;"></div>
+      </div>
+
+      <!-- Surface Pressure & Temp -->
+      <div class="atmo-stat-row atmo-footer-stat">
+        <span class="stat-label">⏱️ Surface Pressure</span>
+        <span id="hud-pressure-val" class="stat-value">1.013 bar</span>
+      </div>
+      <div class="atmo-stat-row atmo-footer-stat">
+        <span class="stat-label">🌡️ Temperature</span>
+        <span id="hud-temp-val" class="stat-value">288 K (15°C)</span>
+      </div>
+    </div>
+
+    <!-- CONTROLS PILL -->
+    <div id="controls-pill" class="glass-panel">
+      <span><span class="ctrl-key">W</span><span class="ctrl-key">A</span><span class="ctrl-key">S</span><span class="ctrl-key">D</span> Move</span>
+      <span><span class="ctrl-key">Mouse Drag</span> Camera Angle</span>
+      <span><span class="ctrl-key">SPACE</span> Jump / Swim</span>
+      <span><span class="ctrl-key">E</span> Interact / Scan</span>
+      <span><span class="ctrl-key">T</span> Transform Ship/Boat</span>
+      <span><span class="ctrl-key">TAB</span> Galaxy Map</span>
+    </div>
+
+    <!-- PROXIMITY INTERACTION PROMPT -->
+    <div id="interaction-prompt" class="hidden">
+      [E] Scan Biosphere
+    </div>
+
+    <!-- STEP 1 & 3iii: PLANT SCANNING FARMING STATS MODAL -->
+    <div id="farming-stats-modal" class="modal-overlay hidden">
+      <div class="modal-card glass-panel">
+        <div class="modal-header">
+          <div id="farm-species-name" class="modal-title">Quercus Terra (Ancient Oak)</div>
+          <button class="modal-close-btn" title="Close">✕</button>
+        </div>
+        <div class="farm-stat-grid">
+          <div class="farm-stat-box">
+            <div class="box-label">Photosynthesis Rating</div>
+            <div id="farm-photosynthesis-rate" class="box-value">96% (C3 Pathway)</div>
+          </div>
+          <div class="farm-stat-box">
+            <div class="box-label">Crop Growth Potential</div>
+            <div id="farm-growth-potential" class="box-value">Optimal (Rich Loam)</div>
+          </div>
+          <div class="farm-stat-box">
+            <div class="box-label">Atmosphere Output / Metric</div>
+            <div id="farm-oxygen-output" class="box-value">+3.2 kg O2 / month</div>
+          </div>
+          <div class="farm-stat-box">
+            <div class="box-label">Thermal Tolerance</div>
+            <div id="farm-temp-tolerance" class="box-value">-15°C to +35°C</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 1 & 3iii: MINING DRILL SOIL CROSS-SECTION MODAL -->
+    <div id="soil-cross-section-modal" class="modal-overlay hidden">
+      <div class="modal-card glass-panel">
+        <div class="modal-header">
+          <div class="modal-title">⛏️ Deep Core Soil Stratum Analysis</div>
+          <button class="modal-close-btn" title="Close">✕</button>
+        </div>
+        <div class="strata-diagram">
+          <div id="drill-strata-1" class="strata-layer strata-topsoil">
+            Depth 0 - 2 m: Organic Topsoil & Humus (Rich in Phosphates & Nitrogen)
+          </div>
+          <div id="drill-strata-2" class="strata-layer strata-mantle">
+            Depth 2 - 50 m: Clay, Silicates & Hydrated Oxides
+          </div>
+          <div id="drill-strata-3" class="strata-layer strata-bedrock">
+            Depth 50 - 500 m: Dense Basaltic Bedrock (Iron, Titanium, Trace Minerals)
+          </div>
+        </div>
+        <div class="yield-container">
+          <div class="yield-row">
+            <span class="yield-label">Iron Ore</span>
+            <div class="yield-bar-bg"><div id="drill-yield-iron" class="yield-bar-fill fill-iron"></div></div>
+          </div>
+          <div class="yield-row">
+            <span class="yield-label">Silicon / Quartz</span>
+            <div class="yield-bar-bg"><div id="drill-yield-silicon" class="yield-bar-fill fill-silicon"></div></div>
+          </div>
+          <div class="yield-row">
+            <span class="yield-label">Rare Metals</span>
+            <div class="yield-bar-bg"><div id="drill-yield-rare" class="yield-bar-fill fill-rare"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2: EYES ON EXOPLANETS DISTANCE CALIPER BANNER (Visual Earth-to-Exoplanet Vector) -->
+    <div id="distance-caliper-banner" class="glass-panel hidden interactive">
+      <div class="caliper-row">
+        <span id="caliper-origin" class="caliper-origin">🌍 Earth (Starting Base • 0 LY)</span>
+        <div class="caliper-vector-wrap">
+          <div class="caliper-vector-line">
+            <div class="caliper-vector-pulse"></div>
+            <div class="caliper-vector-arrow"></div>
+          </div>
+          <span id="caliper-dist-value" class="caliper-dist-badge">39.5 Light-Years (3.74 × 10¹⁴ km)</span>
+        </div>
+        <span id="caliper-target-name" class="caliper-target">🪐 TRAPPIST-1 e</span>
+      </div>
+      <div class="caliper-sub-row">
+        <span>⏱️ Starlight Age: <strong id="caliper-starlight">39.5 Years</strong></span>
+        <span>🚀 Warp 9 Cruise: <strong id="caliper-warp">19.3 Days</strong></span>
+        <span>🌌 Distance: <strong id="caliper-parsec">12.1 pc</strong></span>
+      </div>
+    </div>
+
+    <!-- STEP 2: UNIVERSE OVERVIEW MAP OVERLAY -->
+    <div id="galaxy-map-overlay" class="glass-panel hidden interactive">
+      <!-- Attached Collapsible Docking Tab -->
+      <button id="dock-tab-galaxy-map" class="map-collapse-tab-right" title="Collapse Galaxy Roster ( ] )">
+        <span class="tab-arrow">▶</span>
+        <span class="tab-icon">🌌</span>
+        <span class="tab-text">WORLDS</span>
+      </button>
+
+      <div class="map-overlay-topbar">
+        <div class="map-title-row">
+          <span class="map-title-text">🌌 Galaxy Sector Map</span>
+          <span id="map-worlds-count" class="map-subtitle-text">53 Verified Worlds (NASA Archive)</span>
+        </div>
+        <div class="modal-header-actions">
+          <button class="modal-collapse-btn" id="collapse-galaxy-map-btn" title="Collapse Roster ( ] )">▶</button>
+          <button class="modal-close-btn" id="close-galaxy-map-btn" title="Close Map (Esc)">✕</button>
+        </div>
+      </div>
+      <div class="map-controls-header">
+        <input type="text" id="map-search-input" class="map-search-bar" placeholder="🔍 Search Exoplanets (e.g. TRAPPIST, Kepler, Proxima)...">
+        <div class="filter-pills-row">
+          <button class="filter-pill active" data-filter="all">All Worlds</button>
+          <button class="filter-pill" data-filter="goldilocks">✨ Habitable</button>
+          <button class="filter-pill" data-filter="super-earth">⛰️ Super-Earth</button>
+          <button class="filter-pill" data-filter="liquid">🌊 Ocean World</button>
+          <button class="filter-pill" data-filter="lava">🔥 Lava World</button>
+          <button class="filter-pill" data-filter="gas-giant">🪐 Gas Giant</button>
+          <button class="filter-pill" data-filter="nearby">🚀 Nearby (&lt; 50 LY)</button>
+        </div>
+        <div id="roster-counter" class="roster-counter">Showing 53 of 53 worlds</div>
+      </div>
+      <div id="planet-roster-list">
+        <!-- Roster items populated dynamically from NASA TAP API -->
+      </div>
+    </div>
+
+    <!-- STEP 2: EXOPLANET INSPECTOR MODAL -->
+    <div id="planet-inspector-modal" class="glass-panel hidden interactive">
+      <!-- Attached Collapsible Docking Tab -->
+      <button id="dock-tab-inspector" class="map-collapse-tab-left" title="Collapse Planet Inspector ( [ )">
+        <span class="tab-arrow">◀</span>
+        <span class="tab-icon">🪐</span>
+        <span class="tab-text">INSPECT</span>
+      </button>
+
+      <div class="modal-header">
+        <div>
+          <h2 id="inspect-pl-name" class="modal-title">TRAPPIST-1 e</h2>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Host Star: <span id="inspect-host-star">TRAPPIST-1</span></span>
+        </div>
+        <div class="modal-header-actions">
+          <button class="modal-collapse-btn" id="collapse-inspector-btn" title="Collapse Inspector ( [ )">◀</button>
+          <button class="modal-close-btn" id="close-inspector-btn" title="Close Inspector">✕</button>
+        </div>
+      </div>
+
+      <div id="inspect-goldilocks-status" class="inspect-badge goldilocks">
+        🌟 Within Habitable Goldilocks Zone
+      </div>
+
+      <div class="inspect-grid">
+        <div class="inspect-box">
+          <div class="lbl">Distance from Earth</div>
+          <div id="inspect-distance" class="val" style="color: var(--accent-mint); font-weight: 800;">39.5 Light-Years</div>
+        </div>
+        <div class="inspect-box">
+          <div class="lbl">Planetary Radius</div>
+          <div id="inspect-radius" class="val">0.92 R⊕</div>
+        </div>
+        <div class="inspect-box">
+          <div class="lbl">Planetary Mass</div>
+          <div id="inspect-mass" class="val">0.69 M⊕</div>
+        </div>
+        <div class="inspect-box">
+          <div class="lbl">Bulk Density (ρ)</div>
+          <div id="inspect-density" class="val">5.65 g/cm³</div>
+        </div>
+        <div class="inspect-box">
+          <div class="lbl">Surface Gravity</div>
+          <div id="inspect-gravity" class="val">0.82g</div>
+        </div>
+        <div class="inspect-box">
+          <div class="lbl">Equilibrium Temp</div>
+          <div id="inspect-temperature" class="val">251 K (-22°C)</div>
+        </div>
+        <div class="inspect-box">
+          <div class="lbl">Stellar Insolation Flux</div>
+          <div id="inspect-insolation" class="val">0.66 S⊕</div>
+        </div>
+        <div class="inspect-box">
+          <div class="lbl">Orbital Period</div>
+          <div id="inspect-period" class="val">6.10 days</div>
+        </div>
+        <div class="inspect-box">
+          <div class="lbl">Atmospheric Class</div>
+          <div class="val">Secondary Volatiles</div>
+        </div>
+      </div>
+
+      <div id="inspect-type-desc" class="inspect-desc">
+        Earth-sized rocky exoplanet in the habitable zone.
+      </div>
+
+      <button id="engage-warp-btn" class="warp-btn">🚀 ENGAGE WARP & ENTER ORBIT</button>
+    </div>
+
+    <!-- STEP 3i: ORBITAL APPROACH (Goldilocks Check) -->
+    <div id="orbital-goldilocks-hud" class="glass-panel hidden interactive">
+      <div class="modal-header">
+        <h2 class="modal-title">🛰️ Orbital Telemetry: <span id="gold-pl-name">TRAPPIST-1 e</span></h2>
+        <button class="modal-close-btn" id="close-orbital-hud-btn" title="Back to Galaxy Map">✕</button>
+      </div>
+      <div class="inspect-grid" style="margin-top: 14px;">
+        <div class="inspect-box">
+          <div class="lbl">Effective Stellar Flux (Seff)</div>
+          <div id="gold-stellar-flux" class="val">0.66 S⊕ (Earth = 1.0)</div>
+        </div>
+        <div class="inspect-box">
+          <div class="lbl">Equilibrium Temperature</div>
+          <div id="gold-equilibrium-temp" class="val">251 K (-22°C)</div>
+        </div>
+        <div class="inspect-box" style="grid-column: span 2;">
+          <div class="lbl">Astrophysical Density Evaluation</div>
+          <div id="gold-density-calc" class="val">5.65 g/cm³ (Solid Lithosphere)</div>
+        </div>
+      </div>
+      <div id="goldilocks-verdict-banner" class="goldilocks-banner habitable">
+        ✅ GOLDILOCKS HABITABLE ZONE VERIFIED
+      </div>
+      <button id="start-descent-btn" class="warp-btn">⬇️ INITIATE ATMOSPHERIC DESCENT</button>
+    </div>
+
+    <!-- STEP 3ii: ATMOSPHERIC ENTRY SEQUENCE -->
+    <div id="atmospheric-entry-hud" class="glass-panel hidden">
+      <div class="modal-header">
+        <h2 class="modal-title" style="color: var(--accent-gold);">🔥 Atmospheric Entry Corridors</h2>
+      </div>
+      <div class="telemetry-row">
+        <div class="telemetry-item">
+          <div class="telemetry-label">Descent Altitude</div>
+          <div id="entry-telemetry-alt" class="telemetry-value">120 km</div>
+        </div>
+        <div class="telemetry-item">
+          <div class="telemetry-label">Atmospheric Velocity</div>
+          <div id="entry-telemetry-speed" class="telemetry-value">24,000 km/h</div>
+        </div>
+        <div class="telemetry-item">
+          <div class="telemetry-label">Heat Shield Temp</div>
+          <div id="entry-telemetry-heat" class="telemetry-value">1,850°C</div>
+        </div>
+      </div>
+      <div class="inspect-grid">
+        <div class="inspect-box">
+          <div class="lbl">Stratospheric N₂</div>
+          <div id="entry-atmo-n2" class="val">72%</div>
+        </div>
+        <div class="inspect-box">
+          <div class="lbl">Stratospheric O₂ / Volatiles</div>
+          <div id="entry-atmo-o2" class="val">18%</div>
+        </div>
+        <div class="inspect-box">
+          <div class="lbl">CO₂ Greenhouse Envelope</div>
+          <div id="entry-atmo-co2" class="val">2%</div>
+        </div>
+        <div class="inspect-box">
+          <div class="lbl">Radiation Deflection Shielding</div>
+          <div id="entry-radiation-shield" class="val">98% Efficient</div>
+        </div>
+      </div>
+      <div class="teacher-comms-box">
+        <strong>🎙️ Professor Spike Comms:</strong>
+        <p id="entry-teacher-comms-text" style="margin-top: 6px;">Hold tight Cadet Tom, thermal shields are glowing as we pierce the stratosphere!</p>
+      </div>
+    </div>
+
+    <!-- STEP 3iii & 3iii B: TEACHER NPC DIALOGUE BALLOON -->
+    <div id="teacher-dialogue-modal" class="glass-panel hidden interactive">
+      <div class="teacher-card-layout">
+        <div class="teacher-avatar-col">
+          <div class="teacher-avatar-circle dog-portrait">
+            <span class="avatar-emoji">🐶</span>
+          </div>
+          <span class="teacher-avatar-name">Prof. Spike</span>
+          <span class="teacher-avatar-role">Astrobiology Lead</span>
+        </div>
+        <div class="teacher-content-col">
+          <div class="modal-header speech-header">
+            <div class="mentor-badge-wrap">
+              <span class="speaker-name">Professor Spike</span>
+              <span id="teacher-source-indicator" class="teacher-source featherless">Featherless Live AI</span>
+            </div>
+            <button class="modal-close-btn" title="Close">✕</button>
+          </div>
+          <div id="teacher-dialogue-text">
+            Analyzing planetary telemetry...
+          </div>
+          
+          <div class="teacher-qa-row">
+            <button id="show-comparison-dashboard-btn" class="teacher-quick-ask" style="background: rgba(56, 189, 248, 0.16); border-color: rgba(56, 189, 248, 0.4); color: #7dd3fc; font-weight: 700;">📊 Planet Table</button>
+            <button class="teacher-quick-ask" data-question="Can we grow edible crops or farm here?">🌱 Can we farm here?</button>
+            <button class="teacher-quick-ask" data-question="What minerals can our mining drill extract?">⛏️ What can we mine?</button>
+            <button class="teacher-quick-ask" data-question="How does gravity here compare to Earth?">⚖️ How is gravity?</button>
+            <button class="teacher-quick-ask" data-question="Is it safe to step out of the ship?">🦺 Is it safe outside?</button>
+          </div>
+
+          <div class="teacher-input-row">
+            <input type="text" id="teacher-custom-question" placeholder="Ask Professor Spike anything about this planet...">
+            <button id="send-teacher-question">Ask 🐾</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- API KEY SETTINGS MODAL -->
+    <div id="api-key-modal" class="glass-panel hidden interactive">
+      <div class="modal-header">
+        <h3 class="modal-title" style="font-size: 1rem;">🔑 Featherless AI Key</h3>
+        <button class="modal-close-btn" id="close-api-key-btn" title="Close">✕</button>
+      </div>
+      <p style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.4;">
+        Enter your Featherless API key (powered by Qwen 2.5-7B Instruct) for live AI space teacher dialogues. If left empty, high-fidelity offline Astro-Sim mode is used.
+      </p>
+      <input type="password" id="gemini-api-key-input" class="api-key-input" placeholder="rc_...">
+      <button id="save-api-key-btn" class="action-btn" style="width: 100%; justify-content: center; background: var(--accent-cyan); color: #03045e;">Save API Key</button>
+    </div>
+
+  </div>
+
+  <!-- Entry Script -->
+  <script type="module">
+    import * as THREE from './vendor/three.module.js';
+    window.THREE = THREE;
+    import { Game } from './js/game.js?v=2.5';
+
+    window.addEventListener('DOMContentLoaded', () => {
+      window.gameInstance = new Game();
+      window.game = window.gameInstance;
+
+      // Top bar map toggle button
+      document.getElementById('galaxy-map-toggle-btn')?.addEventListener('click', () => {
+        window.gameInstance.toggleGalaxyMap();
+      });
+    });
+  </script>
+</body>
+</html>
